@@ -1,0 +1,37 @@
+[package]
+name = "rsomics-combine-pvalues"
+version = "0.1.0"
+description = "Combine independent p-values (meta-analysis) — value-exact to scipy.stats.combine_pvalues (Fisher/Pearson/Mudholkar-George/Tippett/Stouffer), faster single-thread"
+edition = "2024"
+rust-version = "1.91"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/omics-rust/rsomics-combine-pvalues"
+authors = ["Zane Leong <efd@live.com>"]
+categories = ["science", "command-line-utilities"]
+keywords = ["statistics", "meta-analysis", "fisher", "stouffer", "scipy"]
+readme = "README.md"
+
+[[bin]]
+name = "rsomics-combine-pvalues"
+path = "src/main.rs"
+
+[lib]
+name = "rsomics_combine_pvalues"
+path = "src/lib.rs"
+doctest = false
+
+[dependencies]
+rsomics-common = "0.6"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+libm = "0.2"
+fast-float2 = "0.2"
+ryu = "1"
+
+[dev-dependencies]
+criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
+tempfile = "3"
+
+[[bench]]
+name = "combine_pvalues"
+harness = false
