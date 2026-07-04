@@ -182,6 +182,28 @@ fn degenerate_one_pvalue() {
     }
 }
 
+// SciPy's default nan_policy='propagate': one NaN p-value (or an all-NaN
+// input) makes both statistic and p-value NaN for every method. We must not
+// drop the NaN and combine the rest — that would ship a finite wrong answer.
+#[test]
+fn nan_propagates_all_methods() {
+    for input in ["degenerate_nan.tsv", "degenerate_all_nan.tsv"] {
+        let path = golden(input);
+        let pstr = path.to_str().unwrap();
+        for method in [
+            "fisher",
+            "pearson",
+            "mudholkar_george",
+            "tippett",
+            "stouffer",
+        ] {
+            let (stat, p) = run(&[pstr, "--method", method, "-t1"]);
+            assert!(stat.is_nan(), "{input}/{method}: statistic {stat} not NaN");
+            assert!(p.is_nan(), "{input}/{method}: pvalue {p} not NaN");
+        }
+    }
+}
+
 #[test]
 fn large_all_methods() {
     assert_combine(

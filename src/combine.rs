@@ -53,6 +53,16 @@ pub fn combine_pvalues(
         }
     }
 
+    // SciPy's default nan_policy='propagate': a single NaN p-value makes both
+    // outputs NaN for every method. Dropping it (and silently combining the
+    // rest) would ship a finite wrong answer.
+    if pvalues.iter().any(|p| p.is_nan()) {
+        return Ok(Combined {
+            statistic: f64::NAN,
+            pvalue: f64::NAN,
+        });
+    }
+
     let n = pvalues.len() as f64;
     let combined = match method {
         Method::Fisher => {
@@ -190,5 +200,24 @@ mod tests {
     #[test]
     fn empty_errors() {
         assert!(combine_pvalues(&[], Method::Fisher, None).is_err());
+    }
+
+    #[test]
+    fn nan_pvalue_propagates() {
+        let with_nan = [f64::NAN, 0.1, 0.2];
+        let all_nan = [f64::NAN, f64::NAN];
+        for method in [
+            Method::Fisher,
+            Method::Pearson,
+            Method::MudholkarGeorge,
+            Method::Tippett,
+            Method::Stouffer,
+        ] {
+            for input in [&with_nan[..], &all_nan[..]] {
+                let c = combine_pvalues(input, method, None).unwrap();
+                assert!(c.statistic.is_nan(), "{method:?} statistic");
+                assert!(c.pvalue.is_nan(), "{method:?} pvalue");
+            }
+        }
     }
 }
