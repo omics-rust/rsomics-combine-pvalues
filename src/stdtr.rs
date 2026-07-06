@@ -64,10 +64,16 @@ pub fn incbet(aa: f64, bb: f64, xx: f64) -> f64 {
     if aa <= 0.0 || bb <= 0.0 {
         return f64::NAN;
     }
-    if xx <= 0.0 {
+    // I_x is defined on [0, 1]; scipy.special.betainc returns NaN outside it.
+    // Tippett feeds min(p) straight in, so an out-of-[0,1] input p must produce
+    // NaN here rather than clamp to a spurious 0 or 1.
+    if !(0.0..=1.0).contains(&xx) {
+        return f64::NAN;
+    }
+    if xx == 0.0 {
         return 0.0;
     }
-    if xx >= 1.0 {
+    if xx == 1.0 {
         return 1.0;
     }
 
@@ -359,6 +365,16 @@ mod tests {
             let r = rel(stdtr(df, t), want);
             assert!(r <= tol, "stdtr({df},{t}) got {} rel {r:e}", stdtr(df, t));
         }
+    }
+
+    // scipy.special.betainc is NaN outside [0, 1]; the boundaries stay 0 and 1.
+    // Tippett feeds min(p) straight in, so an out-of-[0,1] p must not clamp.
+    #[test]
+    fn incbet_out_of_domain_is_nan() {
+        assert!(incbet(1.0, 3.0, 1.5).is_nan());
+        assert!(incbet(1.0, 3.0, -0.1).is_nan());
+        assert_eq!(incbet(1.0, 3.0, 0.0), 0.0);
+        assert_eq!(incbet(1.0, 3.0, 1.0), 1.0);
     }
 
     #[test]

@@ -204,6 +204,51 @@ fn nan_propagates_all_methods() {
     }
 }
 
+// An input p outside [0, 1] is out of domain. SciPy does not pre-validate: it
+// lets the underlying special functions decide, so each method returns a finite
+// value or NaN depending on where the bad p lands in its formula. We must match
+// that per-method split rather than clamp betainc/gammaincc to a spurious p.
+// Reference from scipy.stats.combine_pvalues(1.17.1) on these two inputs.
+#[test]
+fn out_of_range_pvalue_matches_scipy() {
+    // (input, method, expected statistic (None = NaN), expected p (None = NaN))
+    let cases: &[(&str, &str, Option<f64>, Option<f64>)] = &[
+        ("oor_gt1.tsv", "fisher", Some(-4.394_449_154_672_438), None),
+        ("oor_neg.tsv", "fisher", None, None),
+        ("oor_gt1.tsv", "pearson", None, None),
+        (
+            "oor_neg.tsv",
+            "pearson",
+            Some(-0.969_016_630_897_234_4),
+            Some(0.013_240_398_900_083_85),
+        ),
+        ("oor_gt1.tsv", "mudholkar_george", None, None),
+        ("oor_neg.tsv", "mudholkar_george", None, None),
+        ("oor_gt1.tsv", "tippett", Some(1.5), None),
+        ("oor_neg.tsv", "tippett", Some(-0.1), None),
+        ("oor_gt1.tsv", "stouffer", None, None),
+        ("oor_neg.tsv", "stouffer", None, None),
+    ];
+    for &(input, method, want_stat, want_p) in cases {
+        let path = golden(input);
+        let (stat, p) = run(&[path.to_str().unwrap(), "--method", method, "-t1"]);
+        match want_stat {
+            Some(s) => assert!(
+                rel(stat, s) <= STAT_TOL,
+                "{input}/{method}: statistic {stat} vs scipy {s}"
+            ),
+            None => assert!(stat.is_nan(), "{input}/{method}: statistic {stat} not NaN"),
+        }
+        match want_p {
+            Some(w) => assert!(
+                rel(p, w) <= P_TOL,
+                "{input}/{method}: pvalue {p} vs scipy {w}"
+            ),
+            None => assert!(p.is_nan(), "{input}/{method}: pvalue {p} not NaN"),
+        }
+    }
+}
+
 #[test]
 fn large_all_methods() {
     assert_combine(

@@ -9,7 +9,9 @@
 //! and a NaN p-value propagates NaN. The continued-fraction and power-series
 //! loops never converge on a non-finite `x`, so both entries short-circuit on
 //! NaN/inf before iterating — matching SciPy, which returns NaN→NaN and
-//! ±inf→{0,1} without looping.
+//! ±inf→{0,1} without looping. An out-of-[0,1] input p can drive the chi2
+//! argument negative; SciPy's gammainc/gammaincc are NaN there, so `x < 0`
+//! short-circuits to NaN rather than the Cephes x<=0 constant.
 
 const MACHEP: f64 = 1.110_223_024_625_156_5e-16;
 const BIG: f64 = 4.503_599_627_370_496e15;
@@ -23,6 +25,12 @@ pub fn igam(a: f64, x: f64) -> f64 {
     }
     if x == f64::INFINITY {
         return 1.0;
+    }
+    // scipy.special.gammainc(a, x) is NaN for x < 0 (out of domain); only x == 0
+    // is the defined boundary. A negative x reaches here from an out-of-[0,1]
+    // input p, so mirror scipy rather than the Cephes x<=0 → 0 shortcut.
+    if x < 0.0 {
+        return f64::NAN;
     }
     if x <= 0.0 || a <= 0.0 {
         return 0.0;
@@ -58,6 +66,9 @@ pub fn igamc(a: f64, x: f64) -> f64 {
     }
     if x == f64::INFINITY {
         return 0.0;
+    }
+    if x < 0.0 {
+        return f64::NAN;
     }
     if x <= 0.0 || a <= 0.0 {
         return 1.0;
@@ -179,5 +190,17 @@ mod tests {
         assert_eq!(igam(4.0, f64::INFINITY), 1.0);
         assert!(igamc(4.0, f64::NAN).is_nan());
         assert!(igam(4.0, f64::NAN).is_nan());
+    }
+
+    // scipy.special.gammainc/gammaincc are NaN for x < 0 (out of domain). An
+    // out-of-[0,1] Fisher/Pearson input p reaches the tails with a negative x;
+    // igamc(3, -2.197…) must be NaN, not the Cephes 1.0 shortcut.
+    #[test]
+    fn negative_x_is_nan() {
+        assert!(igamc(3.0, -2.197_224_577_336_219_6).is_nan());
+        assert!(igam(3.0, -2.0).is_nan());
+        assert!(igamc(3.0, -0.5).is_nan());
+        assert_eq!(igam(3.0, 0.0), 0.0);
+        assert_eq!(igamc(3.0, 0.0), 1.0);
     }
 }

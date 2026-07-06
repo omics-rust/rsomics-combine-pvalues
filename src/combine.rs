@@ -202,6 +202,42 @@ mod tests {
         assert!(combine_pvalues(&[], Method::Fisher, None).is_err());
     }
 
+    // An input p outside [0, 1] is out of domain. scipy does not pre-validate;
+    // it lets the underlying special functions yield NaN. Each method's finite
+    // vs NaN split below is exactly what scipy.stats.combine_pvalues (1.17.1)
+    // returns for these two adversarial inputs — no clamping to a spurious p.
+    #[test]
+    fn out_of_range_pvalues_match_scipy() {
+        let gt1 = [1.5, 2.0, 3.0];
+        let neg = [-0.1, 0.2, 0.3];
+
+        let f = combine_pvalues(&gt1, Method::Fisher, None).unwrap();
+        assert!(rel(f.statistic, -4.394_449_154_672_438) <= 1e-12);
+        assert!(f.pvalue.is_nan());
+        let f = combine_pvalues(&neg, Method::Fisher, None).unwrap();
+        assert!(f.statistic.is_nan() && f.pvalue.is_nan());
+
+        let p = combine_pvalues(&gt1, Method::Pearson, None).unwrap();
+        assert!(p.statistic.is_nan() && p.pvalue.is_nan());
+        let p = combine_pvalues(&neg, Method::Pearson, None).unwrap();
+        assert!(rel(p.statistic, -0.969_016_630_897_234_4) <= 1e-12);
+        assert!(rel(p.pvalue, 0.013_240_398_900_083_85) <= 1e-12);
+
+        for arr in [&gt1, &neg] {
+            let m = combine_pvalues(arr, Method::MudholkarGeorge, None).unwrap();
+            assert!(m.statistic.is_nan() && m.pvalue.is_nan());
+            let s = combine_pvalues(arr, Method::Stouffer, None).unwrap();
+            assert!(s.statistic.is_nan() && s.pvalue.is_nan());
+        }
+
+        let t = combine_pvalues(&gt1, Method::Tippett, None).unwrap();
+        assert_eq!(t.statistic, 1.5);
+        assert!(t.pvalue.is_nan());
+        let t = combine_pvalues(&neg, Method::Tippett, None).unwrap();
+        assert_eq!(t.statistic, -0.1);
+        assert!(t.pvalue.is_nan());
+    }
+
     #[test]
     fn nan_pvalue_propagates() {
         let with_nan = [f64::NAN, 0.1, 0.2];

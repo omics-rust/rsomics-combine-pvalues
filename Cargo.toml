@@ -1,6 +1,6 @@
 [package]
 name = "rsomics-combine-pvalues"
-version = "0.1.1"
+version = "0.1.2"
 description = "Combine independent p-values (meta-analysis) — value-exact to scipy.stats.combine_pvalues (Fisher/Pearson/Mudholkar-George/Tippett/Stouffer), faster single-thread"
 edition = "2024"
 rust-version = "1.91"
